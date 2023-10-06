@@ -26,14 +26,10 @@ i64 p_sum(int st, int ed) {
 
 
 i64 single_sum() {
-    i64 sum = 0;
-    for (int i = num_st; i <= num_ed; ++i) {
-        sum += i;
-    }
-    return sum;
+    return p_sum(num_st, num_ed + 1);
 }
 
-i64 multi_sum() { 
+i64 multi_sum() {
     vector<thread> threads;
     vector<i64> results(thc);
     i64 sum = 0;
@@ -61,7 +57,7 @@ i64 multi_sum_pf() { //promise, future
         int ed = (i == thc - 1) ? num_ed + 1 : num_st + (i + 1) * range;
         promise<i64> p;
         results[i] = p.get_future();
-        thread([lp = move(p), st, ed]()mutable {lp.set_value(p_sum(st, ed));}).detach();
+        thread([lp = move(p), st, ed]()mutable { lp.set_value(p_sum(st, ed)); }).detach();
     }
 
     for (int i = 0; i < thc; i++) {
@@ -112,7 +108,7 @@ i64 multi_sum_atomic() { //atomic<i64>
     for (int i = 0; i < thc; ++i) {
         int st = num_st + i * range;
         int ed = (i == thc - 1) ? num_ed + 1 : num_st + (i + 1) * range;
-        threads.emplace_back([st, ed, &sum](){sum += p_sum(st, ed);});
+        threads.emplace_back([st, ed, &sum]() { sum += p_sum(st, ed); });
     }
 
     for (int i = 0; i < thc; i++) {
@@ -130,7 +126,7 @@ i64 multi_sum_mutex() { //mutex
     for (int i = 0; i < thc; ++i) {
         int st = num_st + i * range;
         int ed = (i == thc - 1) ? num_ed + 1 : num_st + (i + 1) * range;
-        threads.emplace_back([st, ed, &sum, &m](){
+        threads.emplace_back([st, ed, &sum, &m]() {
             i64 r = p_sum(st, ed);
             m.lock();
             sum += r;
@@ -144,7 +140,7 @@ i64 multi_sum_mutex() { //mutex
     return sum;
 }
 
-double get_exe_time(const function<i64(void)>& func) {
+double get_exe_time(const function<i64(void)> &func) {
     static i64 ans = single_sum();
     i64 result;
     auto start = hc::now();
@@ -155,49 +151,67 @@ double get_exe_time(const function<i64(void)>& func) {
     return duration_cast<microseconds>(end - start).count() / 1000.0;
 }
 
-void print_avg_exe_times(vector<function<i64(void)>> funcs, vector<string> func_names) {
+void avg_exe_printmd(const vector<function<i64(void)>>& funcs, const vector<string>& names) {
     const int cnt = 10;
-    for (int i = 0; i < func_names.size(); i++)
-    {
+    cout << "| thread count ";
+    for (const auto &name: names) {
         cout << "| ";
-        cout.width(14);
-        cout << func_names[i] << ' ';
+        cout << name << ' ';
     }
     cout << "|\n";
-    for (int i = 0; i < funcs.size(); i++)
-    {
-        cout << "| ";
-        double exc_t;
-        double sum = 0;
-        for (int j = 0; j < cnt; ++j) {
-            exc_t = get_exe_time(funcs[i]);
-            sum += exc_t;
+    for (int i = 0; i < names.size() + 1; ++i) {
+        cout << "|------";
+    }
+    cout << "|\n";
+    for (int i = 2; i <= 20; i += 2) {
+        thc = i;
+        range = (num_ed - num_st) / thc;
+        cout << "| " << i;
+        for (const auto &func: funcs) {
+            cout << "| ";
+            double exc_t;
+            double sum = 0;
+            for (int j = 0; j < cnt; ++j) {
+                exc_t = get_exe_time(func);
+                sum += exc_t;
+            }
+            cout << sum / cnt << "ms ";
         }
-        cout.width(12);
-        cout << sum / cnt << "ms ";
+        cout << "|\n";
     }
-    cout << "|\n";
+}
+
+void avg_exe_printpy(const vector<function<i64(void)>>& funcs, const vector<string>& names) {
+    const int cnt = 10;
+    for (int i = 0; i < funcs.size(); ++i) {
+        cout << names[i] << " = [";
+        for (int j = 2; j <= 20; j += 2) {
+            thc = j;
+            range = (num_ed - num_st) / thc;
+            double exc_t;
+            double sum = 0;
+            for (int k = 0; k < cnt; ++k) {
+                exc_t = get_exe_time(funcs[i]);
+                sum += exc_t;
+            }
+            cout << sum / cnt;
+            if (j != 20)
+                cout << ", ";
+        }
+        cout << "]\n";
+    }
 }
 
 int main() {
-    for (int i = 2; i <= 20; i+=2)
-    {
-        thc = i;
-        range = (num_ed - num_st) / thc;
-        cout << "| thread count: " << i << '\n';
-        print_avg_exe_times({single_sum,
-                            multi_sum,
-                            multi_sum_pf,
-                            multi_sum_pkt,
-                            multi_sum_async,
-                            multi_sum_atomic,
-                            multi_sum_mutex}, 
-                            {"ssum()",
-                            "msum()",
-                            "msum_pf()",
-                            "msum_pkt()",
-                            "msum_async()",
-                            "msum_atomic()",
-                            "msum_mutex()"});
-    }
+    vector<function<i64(void)>> funcs = {single_sum,
+                                         multi_sum,
+                                         multi_sum_pf,
+                                         multi_sum_pkt,
+                                         multi_sum_async,};
+    vector<string> names = {"ssum",
+                            "msum",
+                            "msum_fp",
+                            "msum_pt",
+                            "msum_as",};
+    avg_exe_printpy(funcs, names);
 }
