@@ -140,7 +140,7 @@ i64 multi_sum_mutex() { //mutex
     return sum;
 }
 
-double get_exe_time(const function<i64(void)> &func) {
+double get_ptime(const function<i64(void)> &func) {
     static i64 ans = single_sum();
     i64 result;
     auto start = hc::now();
@@ -151,8 +151,25 @@ double get_exe_time(const function<i64(void)> &func) {
     return duration_cast<microseconds>(end - start).count() / 1000.0;
 }
 
-void avg_exe_printmd(const vector<function<i64(void)>>& funcs, const vector<string>& names) {
+vector<vector<double>> get_avg_ptimes(const vector<function<i64(void)>>& funcs) {
     const int cnt = 10;
+    const int max_thc = 10;
+    vector<vector<double>> results(funcs.size(), vector<double>(max_thc));
+    for (int i = 0; i < funcs.size(); ++i) {
+        for (int j = 0; j < max_thc; ++j) {
+            thc = (j + 1) * 2;
+            range = (num_ed - num_st) / thc;
+            double sum = 0;
+            for (int k = 0; k < cnt; ++k) {
+                sum += get_ptime(funcs[i]);
+            }
+            results[i][j] = sum / cnt;
+        }
+    }
+    return results;
+}
+
+void print_ptimes_md(const vector<vector<double>>& times, const vector<string>& names) {
     cout << "| thread count ";
     for (const auto &name: names) {
         cout << "| ";
@@ -160,42 +177,26 @@ void avg_exe_printmd(const vector<function<i64(void)>>& funcs, const vector<stri
     }
     cout << "|\n";
     for (int i = 0; i < names.size() + 1; ++i) {
-        cout << "|------";
+        cout << "|------------";
     }
     cout << "|\n";
-    for (int i = 2; i <= 20; i += 2) {
-        thc = i;
-        range = (num_ed - num_st) / thc;
-        cout << "| " << i;
-        for (const auto &func: funcs) {
+    for (int i = 0; i < times[0].size(); ++i) {
+        cout << "| " << (i + 1) * 2 << ' ';
+        for (int j = 0; j < times.size(); ++j) {
             cout << "| ";
-            double exc_t;
-            double sum = 0;
-            for (int j = 0; j < cnt; ++j) {
-                exc_t = get_exe_time(func);
-                sum += exc_t;
-            }
-            cout << sum / cnt << "ms ";
+            cout << times[j][i] << "ms ";
         }
         cout << "|\n";
     }
 }
 
-void avg_exe_printpy(const vector<function<i64(void)>>& funcs, const vector<string>& names) {
+void print_ptimes_py(const vector<vector<double>>& times, const vector<string>& names) {
     const int cnt = 10;
-    for (int i = 0; i < funcs.size(); ++i) {
+    for (int i = 0; i < times.size(); ++i) {
         cout << names[i] << " = [";
-        for (int j = 2; j <= 20; j += 2) {
-            thc = j;
-            range = (num_ed - num_st) / thc;
-            double exc_t;
-            double sum = 0;
-            for (int k = 0; k < cnt; ++k) {
-                exc_t = get_exe_time(funcs[i]);
-                sum += exc_t;
-            }
-            cout << sum / cnt;
-            if (j != 20)
+        for (int j = 0; j < times[i].size(); ++j) {
+            cout << times[i][j];
+            if (j != times[i].size() - 1)
                 cout << ", ";
         }
         cout << "]\n";
@@ -203,15 +204,10 @@ void avg_exe_printpy(const vector<function<i64(void)>>& funcs, const vector<stri
 }
 
 int main() {
-    vector<function<i64(void)>> funcs = {single_sum,
-                                         multi_sum,
-                                         multi_sum_pf,
-                                         multi_sum_pkt,
-                                         multi_sum_async,};
-    vector<string> names = {"ssum",
-                            "msum",
-                            "msum_fp",
-                            "msum_pt",
-                            "msum_as",};
-    avg_exe_printpy(funcs, names);
+    vector<function<i64(void)>> funcs = {single_sum, multi_sum, multi_sum_pf, multi_sum_pkt, multi_sum_async,};
+    vector<string> py_names = {"ssum", "msum", "msum_fp", "msum_pt", "msum_as",};
+    vector<string> md_names = {"single_sum", "multi_sum", "future-promise", "packaged_task", "async",};
+    auto ptimes = get_avg_ptimes(funcs);
+    print_ptimes_py(ptimes, py_names);
+    print_ptimes_md(ptimes, md_names);
 }
