@@ -48,7 +48,7 @@ cycles per second
 1초에 돌아가는 싸이클의 수
 
 **Clock Cycles:**  
-Clock Cycles = Instruction Count * Cycles per Instruction (CPI)
+Clock Cycles = Instruction Count * Cycles per Instruction (CPI)   
 전체 Cycle의 개수 = 명령 개수 * 명령당 싸이클 개수
 
 **CPU Time:**   
