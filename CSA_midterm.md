@@ -87,8 +87,10 @@ A가 1.2배 빠르다
 이외에도 목적별로 레지스터가 많음.
 전체 번호는 $0 ~ $31임
 
-**R-format instruction fields:**   
-일반적인 인스트럭션의 구성
+---
+
+### **R-format instruction fields:**   
+일반적인 인스트럭션 포멧
 
 |op|rs|rt|rd|shamt|funct|
 |--|--|--|--|-----|-----|
@@ -105,8 +107,8 @@ opcode는 대분류 (산술, 논리), functs는 소분류 (나눗셈, 덧셈)
 
 shamt는 shift연산 할 때만 쓰고, 다른 명령어에선 항상 0임. shift연산의 최댓값이 32라 I-format으로 안빼고 놔둔 것 같음
 
-**I-format instruction fields:**   
-즉시값 산술과 load/store 인스트럭션 구성
+### **I-format instruction fields:**   
+즉시값 산술과 load/store 를 위한 인스트럭션 포멧
 
 |op|rs|rt|imm or addr|
 |--|--|--|-----------|
@@ -115,6 +117,20 @@ shamt는 shift연산 할 때만 쓰고, 다른 명령어에선 항상 0임. shif
 - rt: src, dest로 사용
 - imm: -2^15 ~ 2^15 - 1
 - addr: offset added to base address in rs
+
+주의할 점:   
+I-format에서 점프를 할 때는 PC + 4 + (addr * 4) 위치로 점프한다고 생각해야 함.
+
+### **J-format instruction fields:**   
+점프를 위한 인스트럭션 포멧
+|op|addr|
+|--|----|
+|6bits|26bits|
+
+26비트면 꽤 큰편이지만, 32비트 전체를 표현하진 못함. 그래서 word주소를 사용 (addr * 4로 사용함)   
+워드 주소를 사용하면 28비트까지는 표현 가능. 나머지 4비트는 PC의 상위 4비트를 그대로 가져옴. 이는 MIPS의 단점.
+
+---
 
 | 명령    | arg1 | arg2      | arg3 | 설명                                               |
 |-------|------|-----------|------|--------------------------------------------------|
