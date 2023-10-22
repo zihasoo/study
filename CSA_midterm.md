@@ -232,7 +232,7 @@ Exponent:
 지수부를 항상 unsigned로 저장하기위해 Bias라는 것을 사용함. 따라서 실제로 저장되는 값은 (지수부 + Bias)임. Bias는 단정밀도에서 127, 배정밀도에서 1023으로 사용함.
 
 전체 표현식:   
-$ x = (-1) ^ S \times (1 + Fraction) \times 2^{(Exponent - Bias)} $
+$x = (-1) ^ S \times (1 + Fraction) \times 2^{(Exponent - Bias)}$
 
 **표현 가능한 범위**
 
