@@ -170,3 +170,100 @@ ll (load linked) : 32비트 로드를 시작하면 CPU에 접근 가능 상태 �
 sc (Store Conditional) : ll이 로드한 주소가 sc에 의해 write되기 전에 다른 프로세서가 write했다면,
 CPU 상태비트가 접근 불가능으로 바뀌고 sc는 write에 실패하게 됨. (성공시 reg1=1, 실패시 reg1=0)   
 보통 sc가 write에 실패하면 ll로 load한 데이터를 폐기하고 다시 ll을 수행하게 swap을 구현함
+
+---
+
+## MIPS Arithmetic
+
+### **곱셈:**
+
+32bit 곱셈의 결과는 64bit이고, MIPS는 32bit이기 때문에 결과를 레지스터 2개에 나눠서 저장함. 이때 높은 쪽이 HI, 낮은 쪽이 LO 레지스터에 저장됨. 아래는 이와 관련된 연산
+
+mult rs, rt / multu rs, rt
+- 곱셈의 결과(64비트)를 HI/LO 에 저장함
+
+mfhi rd / mflo rd
+- HI/LO에 있는 값을 rd로 옮김
+- HI값을 통해 32비트 오버플로우가 발생했는지 확인 가능
+
+mul rd, rs, rt
+- 결과값의 하위 32bit만 rd에 저장
+
+optimized multiplier:
+
+1. product 레지스터(승수,피승수의 2배 크기)에 [0000 승수] 형태로 놓음
+2. LSB가 1이면 상위 비트에 피승수를 더함.
+3. shift right를 하고 2번부터 반복.
+4. 승수가 모두 shift right 되면 최종 결과가 product 레지스터에 나옴
+
+### **나눗셈:**
+
+곱셈과 비슷하게 HI와 LO레지스터를 사용. HI에는 나머지, LO에는 몫이 들어감.
+
+div rs, rt / divu rs, rt
+- 오버플로우나 div by zero 체크 없음
+- 곱셈과 마찬가지로 mfhi, mflo써서 결과 확인
+
+optimized divider:
+
+1. remainder 레지스터(제수,피제수의 2배 크기)에 [0000 피제수] 형태로 놓음
+2. shift left를 함
+3. 상위 비트에 (-제수)를 더함
+4. 3번의 결과가 음수라면 (MSB가 1이라면) 3번을 시행하기 전으로 되돌림. 3번의 결과가 양수라면 LSB를 1로 세팅함. 2번부터 반복
+5. 피제수가 모두 shift left되면 remainder 레지스터의 상위 절반 비트는 나머지, 하위 절반 비트는 몫이 됨.
+
+### **부동소수점:**
+
+**IEEE Floating-Point Format**
+
+| S  | Exponent | Fractoin |
+| -- | -------- | -------- |
+|부호|지수부|가수부|
+
+||S|Exponent|Fractoin|total|
+|-|-|-------|--------|-----|
+| single | 1bit | 8bit | 23 bit | 32bit |
+| double | 1bit | 11bit | 52 bit | 64bit |
+
+Normalize significand:   
+소수를 표현할 때, $\pm X.XXX \times 10^n$ 으로 표현하는 방식을 정규화된 과학적 표기법(normalized scientific notation) 이라고 함. 이런 표기법을 이진수에 적용하면 앞부분이 [1.0, 2.0)의 값을 가지게 됨. 따라서 항상 1.0이 포함되므로, Fraction에는 1을 더해서 사용함.이를 hidden bit라고 함.
+
+Exponent:   
+지수부를 항상 unsigned로 저장하기위해 Bias라는 것을 사용함. 따라서 실제로 저장되는 값은 (지수부 + Bias)임. Bias는 단정밀도에서 127, 배정밀도에서 1023으로 사용함.
+
+전체 표현식:   
+$ x = (-1) ^ S \times (1 + Fraction) \times 2^{(Exponent - Bias)} $
+
+**표현 가능한 범위**
+
+hidden bit를 사용하면 항상 1.xxx꼴로 나오기 때문에 0을 표현할 수가 없다. 따라서 아래와 같은 규칙을 사용한다.
+
+지수부가 모두 0이고 가수부가 모두 0이면 이는 0을 의미한다.  
+지수부가 모두 1이고 가수부가 모두 0이면 이는 무한대를 의미한다.
+
+지수부가 모두 1이고 가수부가 0이 아니라면 이는 Not a number(Nan)이다.   
+지수부가 모두 0이고 가수부 값을 모른다면 이는 denormal number이다.
+
+(따라서 지수부 0..과 1..은 위의 의미로만 사용할 수 있다.)
+
+single smallest
+- 지수부: 00000001 (1 - 127 = -126)  
+- 가수부: 000...00 (significand = 1.0)
+- 최솟값: $\pm1.0 \times 2 ^{-126} \approx \pm1.2 \times 10^{-38} $   
+
+single largest
+- 지수부: 11111110 (254 - 127 = +127)   
+- 가수부: 111...11 (significand $\approx$ 2.0)
+- 최댓값: $\pm2.0 \times 2 ^{+127} \approx \pm3.4 \times 10^{+38} $   
+
+double smallest
+- 지수부: 00000000001 (1 - 1023 = –1022)   
+- 가수부: 000...00 (significand = 1.0)
+- 최솟값: $\pm1.0 \times 2 ^{-1022} \approx \pm2.2 \times 10^{-308} $   
+
+double largest
+- 지수부: 11111111110 (2046 - 1023 = +1023)   
+- 가수부: 111...11 (significand $\approx$ 2.0)
+- 최댓값: $\pm2.0 \times 2 ^{+1023} \approx \pm1.8 \times 10^{+308} $   
+
+single의 경우 대략 10진수 6자리의 정밀도를 가지고, double은 약 16자리의 정밀도를 가진다.
